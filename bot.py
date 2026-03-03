@@ -72,7 +72,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             return
         await update.message.reply_text(reply)
     except Exception as exc:
-        logger.error("Error al llamar a Gemini: %s", exc)
+        logger.exception("Error al llamar a Gemini: %s", exc)
         await update.message.reply_text(
             "Lo siento, ocurrió un error al procesar tu consulta. Por favor, inténtalo de nuevo."
         )
