@@ -1,6 +1,6 @@
 # geminibot
 
-Bot de Telegram integrado con la API de Google Gemini. Usa por defecto el modelo **gemini-1.5-pro** y permite cambiar dinámicamente al modelo **gemini-1.5-flash**.
+Bot de Telegram integrado con la API de Google Gemini. Selecciona automáticamente un modelo disponible (priorizando **gemini-2.0-flash** y **gemini-1.5-flash**) y permite cambiar dinámicamente entre **gemini-1.5-pro** y **gemini-1.5-flash** cuando estén habilitados para tu API key.
 
 ## Requisitos
 
@@ -54,8 +54,9 @@ python bot.py
 | Comando  | Descripción                                      |
 |----------|--------------------------------------------------|
 | `/start` | Muestra el mensaje de bienvenida e instrucciones |
-| `/pro`   | Cambia el modelo activo a **gemini-1.5-pro**     |
-| `/flash` | Cambia el modelo activo a **gemini-1.5-flash**   |
+| `/pro`   | Cambia el modelo activo a **gemini-1.5-pro** (si está disponible) |
+| `/flash` | Cambia el modelo activo a **gemini-1.5-flash** (si está disponible) |
+| `/status` / `/stattus` | Muestra modelo actual, por defecto y disponibilidad |
 
 Cualquier otro mensaje de texto es enviado directamente al modelo activo y se devuelve la respuesta generada por Gemini.
 
@@ -65,3 +66,7 @@ Cualquier otro mensaje de texto es enviado directamente al modelo activo y se de
 |----------------------|------------------------------------------|
 | `TELEGRAM_BOT_TOKEN` | Token del bot obtenido desde @BotFather  |
 | `GEMINI_API_KEY`     | Clave de API de Google Gemini            |
+
+## Errores comunes
+
+- **429 / cuota excedida**: tu clave de Gemini alcanzó su límite (free tier o facturación). El bot intentará cambiar automáticamente a otro modelo disponible y, si no hay cuota, te avisará con un mensaje claro. Revisa cuotas y billing en Google AI Studio.
