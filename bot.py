@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 
@@ -63,7 +64,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     try:
         model = get_model(model_name)
-        response = model.generate_content(user_text)
+        response = await asyncio.to_thread(model.generate_content, user_text)
         reply = getattr(response, "text", None)
         if not reply:
             await update.message.reply_text(
