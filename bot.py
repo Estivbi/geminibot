@@ -7,18 +7,6 @@ from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 
-load_dotenv()
-
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-if not TELEGRAM_BOT_TOKEN:
-    raise ValueError("La variable de entorno TELEGRAM_BOT_TOKEN no está definida.")
-if not GEMINI_API_KEY:
-    raise ValueError("La variable de entorno GEMINI_API_KEY no está definida.")
-
-genai.configure(api_key=GEMINI_API_KEY)
-
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
@@ -80,7 +68,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 def main() -> None:
-    app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+    load_dotenv()
+
+    telegram_bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+    gemini_api_key = os.getenv("GEMINI_API_KEY")
+
+    if not telegram_bot_token:
+        raise ValueError("La variable de entorno TELEGRAM_BOT_TOKEN no está definida.")
+    if not gemini_api_key:
+        raise ValueError("La variable de entorno GEMINI_API_KEY no está definida.")
+
+    genai.configure(api_key=gemini_api_key)
+
+    app = ApplicationBuilder().token(telegram_bot_token).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("pro", set_pro))
