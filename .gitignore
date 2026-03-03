@@ -1,2 +1,50 @@
-# Env
+# Entorno y secretos
 .env
+.env.*
+!.env.example
+
+# Entorno virtual
+.venv/
+venv/
+env/
+
+# Caché/bytecode de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Herramientas de test/lint/typecheck
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.tox/
+.nox/
+
+# Cobertura
+.coverage
+.coverage.*
+htmlcov/
+
+# Build/paquetes
+build/
+dist/
+site/
+.eggs/
+*.egg-info/
+pip-wheel-metadata/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs y temporales
+*.log
+*.tmp
+*.swp
+*.swo
+
+# IDE / sistema operativo
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
