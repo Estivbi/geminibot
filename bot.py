@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import re
+import time
 
 import google.generativeai as genai
 from google.api_core import exceptions as google_exceptions
@@ -14,6 +15,7 @@ logging.basicConfig(
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 PREFERRED_MODELS = (
     "gemini-2.0-flash",
@@ -25,6 +27,7 @@ DEFAULT_MODEL = "gemini-1.5-flash"
 # Cache of GenerativeModel instances keyed by model name
 _model_cache: dict[str, genai.GenerativeModel] = {}
 available_models: set[str] = set()
+quota_blocked_until: float = 0.0
 
 
 def list_supported_models() -> set[str]:
@@ -40,11 +43,9 @@ def choose_default_model(models: set[str]) -> str:
         if model_name in models:
             return model_name
 
-    if not models:
-        raise RuntimeError(
-            "No hay modelos compatibles con generateContent para esta API key."
-        )
-    return sorted(models)[0]
+    raise RuntimeError(
+        "No hay modelos preferidos compatibles con generateContent para esta API key."
+    )
 
 
 def model_label(model_name: str) -> str:
@@ -66,10 +67,7 @@ def parse_retry_seconds(error_text: str) -> int | None:
 
 def fallback_models(current_model: str) -> list[str]:
     preferred_available = [model for model in PREFERRED_MODELS if model in available_models]
-    others = [model for model in sorted(available_models) if model not in preferred_available]
-    ordered = [current_model] + [
-        model for model in (preferred_available + others) if model != current_model
-    ]
+    ordered = [current_model] + [model for model in preferred_available if model != current_model]
     return ordered
 
 
@@ -124,15 +122,28 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     for model_name in checks:
         enabled = "✅" if model_name in available_models else "❌"
         lines.append(f"- {model_name}: {enabled}")
+    lines.append("- Nota: ✅ solo indica disponibilidad de API; aún puede fallar por cuota (429).")
+
+    remaining_quota_wait = int(max(0, quota_blocked_until - time.time()))
+    if remaining_quota_wait > 0:
+        lines.append(f"- Reintento por cuota en: ~{remaining_quota_wait}s")
 
     await update.message.reply_text("\n".join(lines))
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    global quota_blocked_until
     user_text = update.message.text
     model_name = context.chat_data.get("model", DEFAULT_MODEL)
     models_to_try = fallback_models(model_name)
     quota_errors: list[str] = []
+
+    remaining_quota_wait = int(max(0, quota_blocked_until - time.time()))
+    if remaining_quota_wait > 0:
+        await update.message.reply_text(
+            f"Gemini está temporalmente limitado por cuota. Intenta de nuevo en ~{remaining_quota_wait}s."
+        )
+        return
 
     for candidate_model in models_to_try:
         try:
@@ -159,11 +170,31 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         except google_exceptions.ResourceExhausted as exc:
             message = str(exc)
             quota_errors.append(message)
-            logger.warning("Cuota excedida en %s: %s", candidate_model, message)
+            retry_seconds = parse_retry_seconds(message) or 30
+            quota_blocked_until = max(quota_blocked_until, time.time() + retry_seconds)
+            logger.warning(
+                "Cuota excedida en %s. Reintento sugerido en ~%ss.",
+                candidate_model,
+                retry_seconds,
+            )
             continue
         except google_exceptions.NotFound as exc:
             logger.warning("Modelo no disponible en %s: %s", candidate_model, exc)
             continue
+        except google_exceptions.InvalidArgument as exc:
+            message = str(exc)
+            if "only supports Interactions API" in message:
+                logger.warning(
+                    "Modelo no compatible con generateContent en %s: %s",
+                    candidate_model,
+                    message,
+                )
+                continue
+            logger.exception("Error de argumento inválido en Gemini: %s", exc)
+            await update.message.reply_text(
+                "El modelo configurado no es compatible con este tipo de consulta."
+            )
+            return
         except Exception as exc:
             logger.exception("Error al llamar a Gemini: %s", exc)
             await update.message.reply_text(
